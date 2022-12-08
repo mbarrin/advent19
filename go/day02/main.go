@@ -19,27 +19,44 @@ func main() {
 		commands = append(commands, code)
 	}
 
-	commands[1] = 12
-	commands[2] = 2
+	one := make([]int, len(commands))
+	copy(one, commands)
+	one[1], one[2] = 12, 2
 
-	commands = computer(commands)
+	fmt.Println("part 1:", computer(one))
 
-	fmt.Println("part 1:", commands[0])
+	for i := 0; i <= 99; i++ {
+		for j := 0; j <= 99; j++ {
+			two := make([]int, len(commands))
+			copy(two, commands)
+
+			two[1], two[2] = i, j
+			if computer(two) == 19690720 {
+				fmt.Println("part 2:", 100*i+j)
+				break
+			}
+		}
+	}
 }
 
-func computer(commands []int) []int {
+func computer(commands []int) int {
 	for i := 0; i <= len(commands); i++ {
-		switch commands[i] {
+		cmd := commands[i]
+		param1 := commands[i+1]
+		param2 := commands[i+2]
+		output := commands[i+3]
+
+		switch cmd {
 		case 1:
-			commands[commands[i+3]] = commands[commands[i+1]] + commands[commands[i+2]]
+			commands[output] = commands[param1] + commands[param2]
 			i += 3
 		case 2:
-			commands[commands[i+3]] = commands[commands[i+1]] * commands[commands[i+2]]
+			commands[output] = commands[param1] * commands[param2]
 			i += 3
 		case 99:
-			return commands
+			return commands[0]
 		}
 	}
 
-	return []int{}
+	return 0
 }
