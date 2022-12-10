@@ -7,27 +7,23 @@ import (
 )
 
 func main() {
-	start := "137683"
-	end := "596253"
+	start, end := 137683, 596253
 	total, totalTwo := 0, 0
 
-	s, _ := strconv.Atoi(start)
-	e, _ := strconv.Atoi(end)
-
-	for i := s; i < e; i++ {
-		total += valid(fmt.Sprintf("%d", i), false)
-		totalTwo += valid(fmt.Sprintf("%d", i), true)
+	for i := start; i < end; i++ {
+		total += valid(i, false)
+		totalTwo += valid(i, true)
 	}
 
 	fmt.Println("part 1:", total)
 	fmt.Println("part 2:", totalTwo)
 }
 
-func valid(number string, exact bool) int {
+func valid(number int, exact bool) int {
 	pairsVal := map[int]int{}
 	lowest := 0
 
-	for _, x := range strings.Split(number, "") {
+	for _, x := range strings.Split(fmt.Sprintf("%d", number), "") {
 		num, _ := strconv.Atoi(x)
 		if num < lowest {
 			return 0
