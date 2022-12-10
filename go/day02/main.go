@@ -40,7 +40,7 @@ func main() {
 }
 
 func computer(commands []int) int {
-	for i := 0; i <= len(commands); i++ {
+	for i := 0; i < len(commands)-4; i++ {
 		cmd := commands[i]
 		param1 := commands[i+1]
 		param2 := commands[i+2]
@@ -58,5 +58,5 @@ func computer(commands []int) int {
 		}
 	}
 
-	return 0
+	return commands[0]
 }
