@@ -7,12 +7,14 @@ import (
 	"strings"
 )
 
+type ops []int
+
 func main() {
 	input, _ := os.ReadFile("input.txt")
 
 	tmp := strings.Split(string(input), ",")
 
-	var commands, commandsTwo []int
+	var commands, commandsTwo ops
 
 	for _, x := range tmp {
 		code, _ := strconv.Atoi(x)
@@ -24,26 +26,62 @@ func main() {
 	fmt.Println("part 2:", computer(commandsTwo, 5))
 }
 
-func value(commands *[]int, index int, mode byte) int {
-	// byte 48 == 0 == valueAt
-	// byte 49 == 1 == value
+func (o ops) value(index int, mode byte) int {
 	if mode == 48 {
-		return (*commands)[index]
+		return o[index]
 	} else if mode == 49 {
 		return index
 	}
 	return 0
 }
 
-func add(commands *[]int, index int, firstMode, secondMode byte) int {
-	return (*commands)[value(commands, index+1, firstMode)] + (*commands)[value(commands, index+2, secondMode)]
+func (o ops) add(i int, firstMode, secondMode byte) int {
+	o[o[i+3]] = o[o.value(i+1, firstMode)] + o[o.value(i+2, secondMode)]
+	return i + 3
 }
 
-func mult(commands *[]int, index int, firstMode, secondMode byte) int {
-	return (*commands)[value(commands, index+1, firstMode)] * (*commands)[value(commands, index+2, secondMode)]
+func (o ops) mult(i int, firstMode, secondMode byte) int {
+	o[o[i+3]] = o[o.value(i+1, firstMode)] * o[o.value(i+2, secondMode)]
+	return i + 3
 }
 
-func computer(commands []int, input int) []int {
+func (o ops) jmp(i int, firstmode, secondMode byte) int {
+	if o[o.value(i+1, firstmode)] != 0 {
+		i = o[o.value(i+2, secondMode)] - 1
+	} else {
+		i += 2
+	}
+	return i
+}
+
+func (o ops) jne(i int, firstmode, secondMode byte) int {
+	if o[o.value(i+1, firstmode)] == 0 {
+		i = o[o.value(i+2, secondMode)] - 1
+	} else {
+		i += 2
+	}
+	return i
+}
+
+func (o ops) lessThan(i int, firstmode, secondMode byte) int {
+	if o[o.value(i+1, firstmode)] < o[o.value(i+2, secondMode)] {
+		o[o[i+3]] = 1
+	} else {
+		o[o[i+3]] = 0
+	}
+	return i + 3
+}
+
+func (o ops) equals(i int, firstmode, secondMode byte) int {
+	if o[o.value(i+1, firstmode)] == o[o.value(i+2, secondMode)] {
+		o[o[i+3]] = 1
+	} else {
+		o[o[i+3]] = 0
+	}
+	return i + 3
+}
+
+func computer(commands ops, input int) []int {
 	output := []int{}
 	for i := 0; i < len(commands); i++ {
 		// 0 pad to length 4 and split into an array
@@ -55,13 +93,11 @@ func computer(commands []int, input int) []int {
 		switch string(cmd[2:]) {
 		case "01":
 			// add
-			commands[commands[i+3]] = add(&commands, i, paramOneMode, paramTwoMode)
-			i += 3
+			i = commands.add(i, paramOneMode, paramTwoMode)
 
 		case "02":
 			// mult
-			commands[commands[i+3]] = mult(&commands, i, paramOneMode, paramTwoMode)
-			i += 3
+			i = commands.mult(i, paramOneMode, paramTwoMode)
 
 		case "03":
 			// read input
@@ -70,43 +106,24 @@ func computer(commands []int, input int) []int {
 
 		case "04":
 			// write output
-			param1 := value(&commands, i+1, paramOneMode)
+			param1 := commands.value(i+1, paramOneMode)
 			output = append(output, commands[param1])
 			i += 1
 
 		case "05":
 			// jump if true
-			if commands[value(&commands, i+1, paramOneMode)] != 0 {
-				i = commands[value(&commands, i+2, paramTwoMode)] - 1
-			} else {
-				i += 2
-			}
+			i = commands.jmp(i, paramOneMode, paramTwoMode)
 
 		case "06":
 			// jump if false
-			if commands[value(&commands, i+1, paramOneMode)] == 0 {
-				i = commands[value(&commands, i+2, paramTwoMode)] - 1
-			} else {
-				i += 2
-			}
+			i = commands.jne(i, paramOneMode, paramTwoMode)
 
 		case "07":
-			// less than
-			if commands[value(&commands, i+1, paramOneMode)] < commands[value(&commands, i+2, paramTwoMode)] {
-				commands[commands[i+3]] = 1
-			} else {
-				commands[commands[i+3]] = 0
-			}
-			i += 3
+			i = commands.lessThan(i, paramOneMode, paramTwoMode)
 
 		case "08":
 			// equal to
-			if commands[value(&commands, i+1, paramOneMode)] == commands[value(&commands, i+2, paramTwoMode)] {
-				commands[commands[i+3]] = 1
-			} else {
-				commands[commands[i+3]] = 0
-			}
-			i += 3
+			i = commands.equals(i, paramOneMode, paramTwoMode)
 
 		case "99":
 			return output
