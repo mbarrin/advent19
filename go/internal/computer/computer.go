@@ -36,14 +36,6 @@ func (c *Computer) LastOutput() int {
 	return c.outputs[len(c.outputs)-1]
 }
 
-func (c *Computer) InputChannel() chan int {
-	return c.inputChannel
-}
-
-func (c *Computer) OutputChannel() chan int {
-	return c.outputChannel
-}
-
 func (c *Computer) SetInputs(inputs []int) {
 	c.inputs = inputs
 }

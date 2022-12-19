@@ -90,7 +90,7 @@ func maxSignal(commands, phases []int) int {
 		wg.Add(1)
 		go amp.Compute()
 
-		output = <-amp.OutputChannel()
+		output = <-out
 
 		for i := 1; i < len(phases); i++ {
 			amp := computer.NewComputer(commands, wg, in, out)
@@ -98,7 +98,7 @@ func maxSignal(commands, phases []int) int {
 			amp.SetInputs(append([]int{phases[i]}, output))
 			wg.Add(1)
 			go amp.Compute()
-			output = <-amp.OutputChannel()
+			output = <-out
 			wg.Wait()
 		}
 

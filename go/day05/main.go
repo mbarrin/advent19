@@ -15,6 +15,8 @@ func main() {
 	tmp := strings.Split(string(input), ",")
 
 	commands := []int{}
+	in := make(chan int, 5)
+	out := make(chan int, 5)
 
 	for _, x := range tmp {
 		code, _ := strconv.Atoi(x)
@@ -24,20 +26,22 @@ func main() {
 	wg := new(sync.WaitGroup)
 	wg.Add(2)
 
-	computerOne := computer.NewComputer(1, commands, wg)
+	computerOne := computer.NewComputer(commands, wg, in, out)
 	computerOne.SetInputs([]int{1})
 
-	computerTwo := computer.NewComputer(1, commands, wg)
+	computerTwo := computer.NewComputer(commands, wg, in, out)
 	computerTwo.SetInputs([]int{5})
 
 	go computerOne.Compute()
 	var output int
 	for output == 0 {
-		output = <-*computerOne.OutputChannel()
+		output = <-out
 	}
 	fmt.Println("part 1:", output)
 
 	go computerTwo.Compute()
-	output = <-*computerTwo.OutputChannel()
+	output = <-out
 	fmt.Println("part 2:", output)
+
+	wg.Wait()
 }
