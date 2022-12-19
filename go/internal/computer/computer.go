@@ -8,49 +8,40 @@ import (
 type Ops []int
 
 type Computer struct {
-	name          int
 	Commands      Ops
 	inputs        []int
-	Output        []int
+	outputs       []int
 	i             int
-	inputChannel  *chan int
-	outputChannel *chan int
+	inputChannel  chan int
+	outputChannel chan int
 	wg            *sync.WaitGroup
 }
 
-func NewComputer(name int, commands Ops, wg *sync.WaitGroup) *Computer {
+func NewComputer(commands Ops, wg *sync.WaitGroup, in, out chan int) *Computer {
 	local := make(Ops, len(commands))
 	copy(local, commands)
 
-	in := make(chan int)
-	out := make(chan int)
-
 	return &Computer{
-		name:          name,
 		Commands:      local,
 		inputs:        []int{},
-		Output:        []int{},
+		outputs:       []int{},
 		i:             0,
-		inputChannel:  &in,
-		outputChannel: &out,
+		inputChannel:  in,
+		outputChannel: out,
 		wg:            wg,
 	}
 }
 
-func (c *Computer) InputChannel() *chan int {
+func (c *Computer) LastOutput() int {
+	return c.outputs[len(c.outputs)-1]
+}
+
+func (c *Computer) InputChannel() chan int {
 	return c.inputChannel
 }
 
-func (c *Computer) SetInputChannel(ch *chan int) {
-	c.inputChannel = ch
-}
-
-func (c *Computer) OutputChannel() *chan int {
+func (c *Computer) OutputChannel() chan int {
 	return c.outputChannel
-}
-
-func (c *Computer) SetOutputChannel(ch *chan int) {
-	c.outputChannel = ch
 }
 
 func (c *Computer) SetInputs(inputs []int) {
@@ -111,9 +102,6 @@ func (c *Computer) equals(firstmode, secondMode byte) {
 }
 
 func (c *Computer) Compute() int {
-	c.wg.Add(1)
-	defer close(*c.inputChannel)
-	defer close(*c.outputChannel)
 	for c.i < len(c.Commands) {
 		// 0 pad to length 4 and split into an array
 		cmd := fmt.Sprintf("%04d", c.Commands[c.i])
@@ -133,7 +121,7 @@ func (c *Computer) Compute() int {
 		case "03":
 			// read input
 			if len(c.inputs) == 0 {
-				c.inputs = append(c.inputs, <-*c.inputChannel)
+				c.inputs = append(c.inputs, <-c.inputChannel)
 			}
 			c.Commands[c.Commands[c.i+1]] = c.inputs[0]
 			c.inputs = c.inputs[1:]
@@ -143,8 +131,8 @@ func (c *Computer) Compute() int {
 			// write output
 			param1 := c.value(c.i+1, paramOneMode)
 			output := c.Commands[param1]
-			c.Output = append(c.Output, output)
-			*c.outputChannel <- output
+			c.outputs = append(c.outputs, output)
+			c.outputChannel <- output
 			c.i += 1
 
 		case "05":

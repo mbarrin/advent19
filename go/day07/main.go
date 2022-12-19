@@ -22,49 +22,57 @@ func main() {
 		commands = append(commands, code)
 	}
 
-	//fmt.Println("part 1:", maxSignal(commands, []int{0, 1, 2, 3, 4}))
-	fmt.Println("part 2:", maxSignal(commands, []int{5, 6, 7, 8, 9}))
+	fmt.Println("part 1:", maxSignal(commands, []int{0, 1, 2, 3, 4}))
+	fmt.Println("part 2:", feedbackSignal(commands, []int{5, 6, 7, 8, 9}))
 }
 
 func feedbackSignal(commands, phases []int) int {
+	signals := []int{}
 	for _, phases := range permutations(phases) {
 		wg := new(sync.WaitGroup)
 
 		amps := []*computer.Computer{}
 
+		ampACh := make(chan int, 5)
+		ampBCh := make(chan int, 5)
+		ampCCh := make(chan int, 5)
+		ampDCh := make(chan int, 5)
+		ampECh := make(chan int, 5)
+
 		output := 0
-		for i, x := range phases {
-			amp := computer.NewComputer(i, commands, wg)
-			amp.SetInputs([]int{x, output})
-			amps = append(amps, amp)
-		}
+		amp := computer.NewComputer(commands, wg, ampECh, ampACh)
+		amp.SetInputs([]int{phases[0], output})
+		amps = append(amps, amp)
 
-		amps[0].SetInputChannel(amps[4].OutputChannel())
-		amps[0].SetOutputChannel(amps[1].InputChannel())
+		amp = computer.NewComputer(commands, wg, ampACh, ampBCh)
+		amp.SetInputs([]int{phases[1]})
+		amps = append(amps, amp)
 
-		amps[1].SetInputChannel(amps[0].OutputChannel())
-		amps[1].SetOutputChannel(amps[2].InputChannel())
+		amp = computer.NewComputer(commands, wg, ampBCh, ampCCh)
+		amp.SetInputs([]int{phases[2]})
+		amps = append(amps, amp)
 
-		amps[2].SetInputChannel(amps[1].OutputChannel())
-		amps[2].SetOutputChannel(amps[3].InputChannel())
+		amp = computer.NewComputer(commands, wg, ampCCh, ampDCh)
+		amp.SetInputs([]int{phases[3]})
+		amps = append(amps, amp)
 
-		amps[3].SetInputChannel(amps[2].OutputChannel())
-		amps[3].SetOutputChannel(amps[4].InputChannel())
-
-		amps[4].SetInputChannel(amps[3].OutputChannel())
-		amps[4].SetOutputChannel(amps[0].InputChannel())
+		amp = computer.NewComputer(commands, wg, ampDCh, ampECh)
+		amp.SetInputs([]int{phases[4]})
+		amps = append(amps, amp)
 
 		for _, x := range amps {
+			wg.Add(1)
 			go x.Compute()
 		}
 
 		wg.Wait()
+
+		signals = append(signals, amps[4].LastOutput())
 	}
 
-	//sort.Ints(signals)
+	sort.Ints(signals)
 
-	//return signals[len(signals)-1]
-	return 0
+	return signals[len(signals)-1]
 }
 
 func maxSignal(commands, phases []int) int {
@@ -74,18 +82,23 @@ func maxSignal(commands, phases []int) int {
 		output := 0
 		wg := new(sync.WaitGroup)
 
-		amp := computer.NewComputer(1, commands, wg)
+		in := make(chan int)
+		out := make(chan int)
+
+		amp := computer.NewComputer(commands, wg, in, out)
 		amp.SetInputs(append([]int{phases[0]}, 0))
+		wg.Add(1)
 		go amp.Compute()
 
-		output = <-*amp.OutputChannel()
+		output = <-amp.OutputChannel()
 
 		for i := 1; i < len(phases); i++ {
-			amp := computer.NewComputer(1, commands, wg)
+			amp := computer.NewComputer(commands, wg, in, out)
 
 			amp.SetInputs(append([]int{phases[i]}, output))
+			wg.Add(1)
 			go amp.Compute()
-			output = <-*amp.OutputChannel()
+			output = <-amp.OutputChannel()
 			wg.Wait()
 		}
 
