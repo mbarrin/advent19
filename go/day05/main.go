@@ -15,33 +15,43 @@ func main() {
 	tmp := strings.Split(string(input), ",")
 
 	commands := []int{}
-	in := make(chan int, 5)
-	out := make(chan int, 5)
 
 	for _, x := range tmp {
 		code, _ := strconv.Atoi(x)
 		commands = append(commands, code)
 	}
 
+	fmt.Println("part 1:", process(commands, 1))
+
+	fmt.Println("part 2:", process(commands, 5))
+}
+
+func process(commands []int, val int) int {
+	in := make(chan int, 10)
+	out := make(chan int, 10)
+
 	wg := new(sync.WaitGroup)
-	wg.Add(2)
 
-	computerOne := computer.NewComputer(commands, wg, in, out)
-	computerOne.SetInputs([]int{1})
+	computer := computer.NewComputer(commands, wg, in, out)
+	computer.SetInputs([]int{val})
 
-	computerTwo := computer.NewComputer(commands, wg, in, out)
-	computerTwo.SetInputs([]int{5})
-
-	go computerOne.Compute()
-	var output int
-	for output == 0 {
-		output = <-out
-	}
-	fmt.Println("part 1:", output)
-
-	go computerTwo.Compute()
-	output = <-out
-	fmt.Println("part 2:", output)
+	wg.Add(1)
+	go computer.Compute()
 
 	wg.Wait()
+	close(in)
+	close(out)
+
+	var output int
+
+	for {
+		tmp, ok := <-out
+		if ok {
+			output = tmp
+		} else {
+			break
+		}
+	}
+
+	return output
 }
