@@ -8,24 +8,26 @@ import (
 type Ops []int
 
 type Computer struct {
-	Commands      Ops
+	commands      Ops
 	inputs        []int
 	outputs       []int
 	i             int
+	r             int
 	inputChannel  chan int
 	outputChannel chan int
 	wg            *sync.WaitGroup
 }
 
 func NewComputer(commands Ops, wg *sync.WaitGroup, in, out chan int) *Computer {
-	local := make(Ops, len(commands))
+	local := make(Ops, 10240)
 	copy(local, commands)
 
 	return &Computer{
-		Commands:      local,
+		commands:      local,
 		inputs:        []int{},
 		outputs:       []int{},
 		i:             0,
+		r:             0,
 		inputChannel:  in,
 		outputChannel: out,
 		wg:            wg,
@@ -42,61 +44,63 @@ func (c *Computer) SetInputs(inputs []int) {
 
 func (c *Computer) value(index int, mode byte) int {
 	if mode == 48 {
-		return c.Commands[index]
+		return c.commands[index]
 	} else if mode == 49 {
 		return index
+	} else if mode == 50 {
+		return c.r + c.commands[index]
 	}
 	return 0
 }
 
 func (c *Computer) add(firstMode, secondMode byte) {
-	c.Commands[c.Commands[c.i+3]] = c.Commands[c.value(c.i+1, firstMode)] + c.Commands[c.value(c.i+2, secondMode)]
+	c.commands[c.commands[c.i+3]] = c.commands[c.value(c.i+1, firstMode)] + c.commands[c.value(c.i+2, secondMode)]
 	c.i += 3
 }
 
 func (c *Computer) mult(firstMode, secondMode byte) {
-	c.Commands[c.Commands[c.i+3]] = c.Commands[c.value(c.i+1, firstMode)] * c.Commands[c.value(c.i+2, secondMode)]
+	c.commands[c.commands[c.i+3]] = c.commands[c.value(c.i+1, firstMode)] * c.commands[c.value(c.i+2, secondMode)]
 	c.i += 3
 }
 
 func (c *Computer) jmp(firstmode, secondMode byte) {
-	if c.Commands[c.value(c.i+1, firstmode)] != 0 {
-		c.i = c.Commands[c.value(c.i+2, secondMode)] - 1
+	if c.commands[c.value(c.i+1, firstmode)] != 0 {
+		c.i = c.commands[c.value(c.i+2, secondMode)] - 1
 	} else {
 		c.i += 2
 	}
 }
 
 func (c *Computer) jne(firstmode, secondMode byte) {
-	if c.Commands[c.value(c.i+1, firstmode)] == 0 {
-		c.i = c.Commands[c.value(c.i+2, secondMode)] - 1
+	if c.commands[c.value(c.i+1, firstmode)] == 0 {
+		c.i = c.commands[c.value(c.i+2, secondMode)] - 1
 	} else {
 		c.i += 2
 	}
 }
 
 func (c *Computer) lessThan(firstmode, secondMode byte) {
-	if c.Commands[c.value(c.i+1, firstmode)] < c.Commands[c.value(c.i+2, secondMode)] {
-		c.Commands[c.Commands[c.i+3]] = 1
+	if c.commands[c.value(c.i+1, firstmode)] < c.commands[c.value(c.i+2, secondMode)] {
+		c.commands[c.commands[c.i+3]] = 1
 	} else {
-		c.Commands[c.Commands[c.i+3]] = 0
+		c.commands[c.commands[c.i+3]] = 0
 	}
 	c.i += 3
 }
 
 func (c *Computer) equals(firstmode, secondMode byte) {
-	if c.Commands[c.value(c.i+1, firstmode)] == c.Commands[c.value(c.i+2, secondMode)] {
-		c.Commands[c.Commands[c.i+3]] = 1
+	if c.commands[c.value(c.i+1, firstmode)] == c.commands[c.value(c.i+2, secondMode)] {
+		c.commands[c.commands[c.i+3]] = 1
 	} else {
-		c.Commands[c.Commands[c.i+3]] = 0
+		c.commands[c.commands[c.i+3]] = 0
 	}
 	c.i += 3
 }
 
 func (c *Computer) Compute() int {
-	for c.i < len(c.Commands) {
+	for {
 		// 0 pad to length 4 and split into an array
-		cmd := fmt.Sprintf("%04d", c.Commands[c.i])
+		cmd := fmt.Sprintf("%04d", c.commands[c.i])
 		paramOneMode := cmd[1]
 		paramTwoMode := cmd[0]
 
@@ -115,14 +119,15 @@ func (c *Computer) Compute() int {
 			if len(c.inputs) == 0 {
 				c.inputs = append(c.inputs, <-c.inputChannel)
 			}
-			c.Commands[c.Commands[c.i+1]] = c.inputs[0]
+			param1 := c.value(c.i+1, paramOneMode)
+			c.commands[param1] = c.inputs[0]
 			c.inputs = c.inputs[1:]
 			c.i += 1
 
 		case "04":
 			// write output
 			param1 := c.value(c.i+1, paramOneMode)
-			output := c.Commands[param1]
+			output := c.commands[param1]
 			c.outputs = append(c.outputs, output)
 			c.outputChannel <- output
 			c.i += 1
@@ -143,12 +148,18 @@ func (c *Computer) Compute() int {
 			// equal to
 			c.equals(paramOneMode, paramTwoMode)
 
+		case "09":
+			// update r
+			c.r += c.value(c.i+1, paramOneMode)
+			c.i += 1
+
 		case "99":
-			c.wg.Done()
+			if c.wg != nil {
+				c.wg.Done()
+			}
 			return 0
 		}
 
 		c.i++
 	}
-	return -1
 }
