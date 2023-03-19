@@ -20,14 +20,22 @@ func main() {
 		commands = append(commands, code)
 	}
 
+	fmt.Println("part 1:", run(commands, 1))
+	fmt.Println("part 2:", run(commands, 2))
+}
+
+func run(commands []int, value int) int {
 	in, out := make(chan int, 10), make(chan int, 10)
 
 	c := computer.NewComputer(commands, nil, in, out)
-	in <- 1
+	in <- value
 	c.Compute()
 	close(out)
 
+	var output int
 	for x := range out {
-		fmt.Println(x)
+		output = x
 	}
+
+	return output
 }
